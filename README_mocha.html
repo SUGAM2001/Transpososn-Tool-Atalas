@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transposon Tools Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* default palette: Mocha and Vanilla */
+    --bg:#3d2b20; --deep:#2b1e16; --ink:#f3e5c8; --muted:#c9b294; --accent:#d8a86b;
+    --glass:rgba(243,229,200,.07); --glass-edge:rgba(243,229,200,.18);
+    --serif:"Fraunces", Georgia, serif; --sans:"Manrope", system-ui, sans-serif;
+  }
+  [data-palette="espresso"]{--bg:#2a1f19; --deep:#1e1510; --ink:#efe3cf; --muted:#b49f85; --accent:#c98e55;
+    --glass:rgba(239,227,207,.06); --glass-edge:rgba(239,227,207,.16);}
+  [data-palette="cocoa"]{--bg:#4a3426; --deep:#35241a; --ink:#f7ecd6; --muted:#d2bc9b; --accent:#e0b07a;
+    --glass:rgba(247,236,214,.08); --glass-edge:rgba(247,236,214,.2);}
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;min-height:100vh;color:var(--ink);font:400 16px/1.6 var(--sans);
+    background:radial-gradient(1200px 700px at 80% -10%, var(--bg) 0%, var(--deep) 75%) fixed;
+    background-color:var(--deep);}
+  #dna{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+  .wrap{position:relative;z-index:1;max-width:1040px;margin:0 auto;padding:64px 24px 96px}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent}
+  a:hover{border-bottom-color:var(--accent)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+
+  .glass{background:var(--glass);border:1px solid var(--glass-edge);border-radius:20px;
+    -webkit-backdrop-filter:blur(16px) saturate(120%);backdrop-filter:blur(16px) saturate(120%)}
+
+  header{padding:40px 40px 36px}
+  h1{font:300 62px/1.02 var(--serif);margin:0 0 18px;letter-spacing:-.01em}
+  h1 em{font-style:italic;color:var(--accent);font-weight:300}
+  .lede{font-size:18px;color:var(--muted);max-width:640px;margin:0}
+
+  .topbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;margin-top:28px}
+  .palettes{display:flex;gap:8px;flex-wrap:wrap}
+  button{font:500 14px var(--sans);color:var(--ink);background:transparent;border:1px solid var(--glass-edge);
+    padding:8px 16px;border-radius:999px;cursor:pointer;transition:background .2s,border-color .2s}
+  button:hover{border-color:var(--accent)}
+  button[aria-pressed="true"]{background:var(--accent);color:var(--deep);border-color:var(--accent)}
+  .palettes span{font-size:13px;color:var(--muted);margin-right:6px;align-self:center}
+
+  .stats{display:flex;gap:32px;flex-wrap:wrap;margin-top:28px}
+  .stats b{display:block;font:300 36px var(--serif)}
+  .stats small{color:var(--muted);font-size:13px}
+
+  section{margin-top:56px}
+  section h2{font:300 34px/1.15 var(--serif);margin:0 0 8px}
+  .note{color:var(--muted);margin:0 0 22px;max-width:700px}
+
+  .species-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px}
+  .species{padding:22px;cursor:pointer;transition:border-color .2s}
+  .species:hover,.species[aria-pressed="true"]{border-color:var(--accent)}
+  .species h3{font:500 20px var(--serif);margin:0 0 6px}
+  .species p{margin:0;font-size:14px;color:var(--muted)}
+  .species .count{display:block;margin-top:12px;font:600 13px var(--sans);color:var(--accent)}
+
+  .filters{display:flex;flex-wrap:wrap;gap:8px;margin:24px 0 0}
+
+  .cat h3{font:300 24px var(--serif);margin:36px 0 12px;color:var(--ink)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+  .tool{padding:22px 24px;display:flex;flex-direction:column;gap:8px;transition:border-color .2s,transform .2s}
+  .tool:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .tool h4{font:500 19px var(--serif);margin:0}
+  .tool p{margin:0;font-size:15px;color:var(--ink);opacity:.9}
+  .tags{display:flex;flex-wrap:wrap;gap:6px}
+  .tag{font:500 12px var(--sans);color:var(--ink);background:rgba(243,229,200,.1);padding:3px 9px;border-radius:999px}
+  .links{display:flex;flex-wrap:wrap;gap:14px;font-size:14px;margin-top:auto;padding-top:6px}
+  .hidden{display:none !important}
+
+  .bench .tool{background:transparent}
+  .gap{padding:28px 32px}
+  .gap ul{margin:10px 0 0;padding-left:20px;color:var(--ink)}
+  .gap li{margin:6px 0}
+
+  footer{margin-top:72px;color:var(--muted);font-size:14px}
+
+  @media (max-width:640px){
+    header{padding:28px 22px}
+    h1{font-size:44px}
+    .wrap{padding:40px 16px 72px}
+  }
+  @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<canvas id="dna" aria-hidden="true"></canvas>
+
+<div class="wrap">
+
+<header class="glass">
+  <h1>Transposon Tools <em>Atlas</em></h1>
+  <p class="lede">A living index of software for transposable elements across human, mouse, plant, zebrafish and <em>Drosophila melanogaster</em>. Organised by the question each tool answers, with the reference paper and code for every entry.</p>
+  <div class="topbar">
+    <div class="palettes" role="group" aria-label="Colour palette">
+      <span>Palette</span>
+      <button data-palette="mocha" aria-pressed="true">Mocha and vanilla</button>
+      <button data-palette="espresso" aria-pressed="false">Espresso and oat</button>
+      <button data-palette="cocoa" aria-pressed="false">Cocoa and cream</button>
+    </div>
+  </div>
+  <div class="stats">
+    <div><b>5</b><small>species</small></div>
+    <div><b id="stat-tools">0</b><small>tools and benchmarks</small></div>
+    <div><b>9</b><small>analysis modes</small></div>
+  </div>
+</header>
+
+<section>
+  <h2>Choose a species</h2>
+  <p class="note">Select a species to see only the tools that apply to it. Choose All to see everything.</p>
+  <div class="species-grid" id="species-grid"></div>
+</section>
+
+<section>
+  <div class="filters" id="filters" role="group" aria-label="Filter by species"></div>
+  <div id="catalog"></div>
+</section>
+
+<section>
+  <div class="glass gap">
+    <h2 style="font-size:28px">Still to add</h2>
+    <p class="note" style="margin-bottom:0">These were requested but I could not verify tools for them in this pass. Contributions welcome.</p>
+    <ul>
+      <li><strong>Fusion detection involving TEs</strong>, in bulk or single-cell data.</li>
+      <li><strong>Drosophila piRNA and ping-pong analysis</strong>, such as proTRAC and piPipes.</li>
+      <li><strong>Short-read insertion callers</strong> for human germline and somatic work, such as MELT, TEMP2 and Mobster.</li>
+      <li><strong>Zebrafish-specific TE tools</strong>. Only general tools apply for now.</li>
+      <li><strong>Plant isoform-level and bulk long-read expression</strong> tools.</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  Each entry links to its reference paper and code. To add a tool, open an issue or pull request with the paper DOI and a GitHub link.
+</footer>
+
+</div>
+
+<script>
+// ---------- Data ----------
+const SPECIES = {
+  human:{label:"Human", note:"Half the genome is TE-derived. Alu, LINE-1 and HERVs drive most tool development."},
+  mouse:{label:"Mouse", note:"Strong locus-level work. MERVL and the 2-cell-like state are common test cases."},
+  plant:{label:"Plant", note:"LTR retrotransposons dominate many genomes, so annotation tools matter most."},
+  zebrafish:{label:"Zebrafish", note:"Few dedicated tools. General pipelines apply, with danRer11 indices and Dfam libraries."},
+  drosophila:{label:"Drosophila", note:"Good long-read and cell-line work. piRNA tools are still to be added."}
+};
+const CATS = {
+  annotation:"Genome annotation and TE libraries",
+  family:"Family-level RNA-seq",
+  locus:"Locus-level RNA-seq",
+  sc:"Single-cell RNA-seq",
+  long:"Long-read insertion discovery",
+  chromatin:"ChIP-seq and ATAC-seq at repeats",
+  hic:"Hi-C and 3D genome",
+  bench:"Benchmarks"
+};
+const ALL = ["human","mouse","plant","zebrafish","drosophila"];
+const TOOLS = [
+  {c:"annotation",n:"RepeatMasker and RepeatModeler2",sp:ALL,d:"The standard de novo family discovery and genome masking pair. Dfam holds the curated family library.",p:["RepeatMasker","https://www.repeatmasker.org"],g:"https://github.com/Dfam-consortium/RepeatModeler"},
+  {c:"annotation",n:"EDTA",sp:["plant","drosophila"],d:"Builds a filtered, non-redundant TE library for whole genomes and deconvolutes nested insertions.",p:["Ou et al., Genome Biology 2019","https://doi.org/10.1186/s13059-019-1905-y"],g:"https://github.com/oushujun/EDTA"},
+  {c:"annotation",n:"LTR_retriever",sp:["plant"],d:"Identifies LTR retrotransposons and produces high-quality LTR libraries. Works with long-read assemblies.",p:["Ou and Jiang, Plant Physiology 2018","https://academic.oup.com/plphys/article/176/2/1410/6117145"],g:"https://github.com/oushujun/LTR_retriever"},
+  {c:"annotation",n:"TEsorter",sp:["plant"],d:"Classifies LTR retrotransposons to superfamily and clade level, with higher precision than the alternatives tested.",p:["Zhang et al., Horticulture Research 2022","https://pmc.ncbi.nlm.nih.gov/articles/PMC9002660"],g:"https://github.com/zhangrengang/TEsorter"},
+  {c:"annotation",n:"DANTE and DANTE_LTR",sp:["plant"],d:"Protein-domain-based identification and annotation of LTR retrotransposons, an alternative to structure-only methods.",p:["NAR Genomics and Bioinformatics 2024","https://academic.oup.com/nargab/article/6/3/lqae113/7744946"]},
+
+  {c:"family",n:"TEtranscripts",sp:ALL,d:"Quantifies genes and TE families together, assigning multi-mapping reads by expectation maximisation. The most widely used bulk tool.",p:["Jin et al., Bioinformatics 2015","https://doi.org/10.1093/bioinformatics/btv422"],g:"https://github.com/mhammell-laboratory/TEtranscripts"},
+  {c:"family",n:"SalmonTE",sp:ALL,d:"Family-level TE expression with Salmon and a custom consensus library, so you can use your own species' repeats.",p:["Jeong et al., 2018","https://doi.org/10.1093/bioinformatics/bty291"],g:"https://github.com/DaehwanKimLab/salmonTE"},
+  {c:"family",n:"TEspeX",sp:["human","mouse"],d:"Consensus-level quantification that discards reads from exonised TE fragments, reducing false TE signal from genes.",p:["Bioinformatics 2022","https://pmc.ncbi.nlm.nih.gov/articles/PMC9477521"]},
+
+  {c:"locus",n:"SQuIRE",sp:["human","mouse","drosophila"],d:"Full pipeline (Fetch, Map, Count, Call) for locus-level TE expression and differential analysis, with TE and gene context.",p:["Yang et al., Nucleic Acids Research 2019","https://academic.oup.com/nar/article/47/5/e27/5280934"],g:"https://github.com/wyang17/SQuIRE"},
+  {c:"locus",n:"Telescope",sp:["human","mouse"],d:"Estimates expression at specific insertions using a per-element reassignment parameter. Showed locus-specific HERV expression.",p:["Bendall et al., Bioinformatics 2019","https://pmc.ncbi.nlm.nih.gov/articles/PMC6786656"],g:"https://github.com/mlbendall/telescope"},
+  {c:"locus",n:"TElocal",sp:["human","mouse"],d:"Locus-level companion within the TEtranscripts package, useful for comparing locus and family results.",p:["Jin et al., Bioinformatics 2015","https://doi.org/10.1093/bioinformatics/btv422"],g:"https://github.com/mhammell-laboratory/TEtranscripts"},
+
+  {c:"sc",n:"scTE",sp:["human","mouse","drosophila","zebrafish"],d:"Per-cell TE quantification by collapsing reads to TE-type metagenes. Also has a scATAC mode. Prebuilt indices for mm10, hg38, dm6 and danRer11.",p:["Jin et al., Nature Communications 2021","https://pmc.ncbi.nlm.nih.gov/articles/PMC7935913"],g:"https://github.com/JiekaiLab/scTE"},
+  {c:"sc",n:"Stellarscope",sp:["human","mouse"],d:"Telescope adapted for single cells. One of the few tools that attempts locus-specific assignment per cell.",p:["Benchmark preprint, 2026","https://www.biorxiv.org/content/10.64898/2026.02.26.708244.full.pdf"]},
+  {c:"sc",n:"IRescue",sp:["human","mouse"],d:"UMI deduplication and subfamily-level quantification for single-cell and single-nucleus data.",p:["Nucleic Acids Research 2024","https://academic.oup.com/nar/article/52/19/e93/7756585"]},
+
+  {c:"long",n:"TELR",sp:["drosophila"],d:"Predicts non-reference TE insertions from PacBio long reads and locally assembles each one. Developed on Drosophila cell lines.",p:["Nucleic Acids Research 2022","https://pmc.ncbi.nlm.nih.gov/articles/PMC9757076"]},
+  {c:"long",n:"STELR",sp:ALL,d:"Snakemake re-implementation of TELR. Calls insertions with Sniffles, reassembles each locus and maps flanks for target-site duplications.",p:["TELR lineage, Bergman lab","https://github.com/bergmanlab/STELR"],g:"https://github.com/bergmanlab/STELR"},
+  {c:"long",n:"sTELLeR",sp:["human"],d:"Fast, precise long-read caller with higher sensitivity for Alu elements than comparable tools.",p:["Bioinformatics 2024","https://pubmed.ncbi.nlm.nih.gov/39558574/"],g:"https://github.com/kristinebilgrav/sTELLeR"},
+  {c:"long",n:"xTea",sp:["human"],d:"Detects non-reference insertions from short reads, linked reads and long reads, reconstructing full inserted sequences where possible.",p:["Chu et al., Nature Communications 2021","https://pmc.ncbi.nlm.nih.gov/articles/PMC8219666"]},
+  {c:"long",n:"TrEMOLO",sp:["drosophila"],d:"Detects TE insertions and deletions from Nanopore data using assembly and mapping together, and estimates allele frequency.",p:["Genome Biology 2023","https://doi.org/10.1186/s13059-023-02911-2"],g:"https://github.com/DrosophilaGenomeEvolution/TrEMOLO"},
+  {c:"long",n:"LoRTE",sp:["drosophila"],d:"Early PacBio tool for TE presence and absence between a reference and long-read genomes, tested at low coverage.",p:["Disdero and Filée, Mobile DNA 2017","https://doi.org/10.1186/s13100-017-0088-x"]},
+
+  {c:"chromatin",n:"Allo",sp:["human","mouse","drosophila"],d:"Allocates multi-mapped reads probabilistically, then checks each candidate against peak-shape features. Works for ChIP and ATAC.",p:["Morrissey et al., bioRxiv 2023","https://www.biorxiv.org/content/10.1101/2023.09.12.556916.full.pdf"]},
+  {c:"chromatin",n:"PAtChER",sp:["human"],d:"Protein enrichment profiles at individual young TE loci, using HiChIP chimeric reads to rescue ambiguous signal.",p:["Taylor et al., Nucleic Acids Research 2021","https://pmc.ncbi.nlm.nih.gov/articles/PMC8989514"]},
+  {c:"chromatin",n:"T3E",sp:["human","mouse"],d:"Transposable Element Enrichment Estimator. Normalises ChIP-seq against input to find TE families enriched for a mark or factor.",p:["Almeida da Paz and Taher, Mobile DNA 2022","https://doi.org/10.1186/s13100-022-00285-z"],g:"https://github.com/michelleapaz/T3E"},
+  {c:"chromatin",n:"Crunch and MapRRcon",sp:["human","mouse"],d:"Crunch keeps multi-mapped reads in ChIP-seq. MapRRcon maps reads to TE consensus sequences to find TE-binding proteins.",p:["Summarised in a 2022 review table","https://pmc.ncbi.nlm.nih.gov/articles/PMC9140218/table/T2"]},
+
+  {c:"hic",n:"HiC-TE",sp:ALL,d:"Identifies TEs involved in 3D chromosome conformation from Hi-C reads.",p:["Lexa et al., 2021 (review table)","https://pmc.ncbi.nlm.nih.gov/articles/PMC9140218/table/T2"]},
+  {c:"hic",n:"HiTea",sp:["human","mouse"],d:"Finds new TE insertions from Hi-C reads that classical pipelines discard, using discordant pairs with one end in a TE.",p:["Jain et al., 2021 (review table)","https://pmc.ncbi.nlm.nih.gov/articles/PMC9140218/table/T2"]},
+
+  {c:"bench",n:"Locus-specific expression analysis of TEs",sp:["human","mouse"],d:"Compares SalmonTE, TEtools, TEtranscripts, SQuIRE and Telescope on simulated data.",p:["Briefings in Bioinformatics 2021","https://doi.org/10.1093/bib/bbab417"]},
+  {c:"bench",n:"Locus-level TE quantification benchmark",sp:["human","mouse"],d:"Eight pipelines from four tools tested on simulated human and mouse data, including TSS-signal refinement.",p:["Savytska et al., Frontiers in Genetics 2022","https://doi.org/10.3389/fgene.2022.1026847"]},
+  {c:"bench",n:"Locus-specific TE quantification in scRNA-seq",sp:["human","mouse"],d:"Benchmarks single-cell tools that attempt locus-level assignment, including SoloTE and Stellarscope.",p:["Finazzi et al., bioRxiv 2026","https://doi.org/10.64898/2026.02.26.708244"]}
+];
+
+// ---------- Render ----------
+const catalog = document.getElementById("catalog");
+const filters = document.getElementById("filters");
+const grid = document.getElementById("species-grid");
+let current = "all";
+
+function renderCatalog(){
+  catalog.innerHTML = "";
+  Object.entries(CATS).forEach(([key,title])=>{
+    const items = TOOLS.filter(t=>t.c===key && (current==="all" || t.sp.includes(current)));
+    if(!items.length) return;
+    const wrap = document.createElement("div");
+    wrap.className = "cat" + (key==="bench" ? " bench" : "");
+    wrap.innerHTML = `<h3>${title}</h3><div class="cards"></div>`;
+    const cards = wrap.querySelector(".cards");
+    items.forEach(t=>{
+      const card = document.createElement("article");
+      card.className = "tool glass";
+      const tags = t.sp.map(s=>`<span class="tag">${SPECIES[s]?SPECIES[s].label:s}</span>`).join("");
+      const links = [`<a href="${t.p[1]}">${t.p[0]}</a>`, t.g?`<a href="${t.g}">Code</a>`:""].join("");
+      card.innerHTML = `<h4>${t.n}</h4><div class="tags">${tags}</div><p>${t.d}</p><div class="links">${links}</div>`;
+      cards.appendChild(card);
+    });
+    catalog.appendChild(wrap);
+  });
+}
+
+function setSpecies(s){
+  current = s;
+  document.querySelectorAll("[data-species]").forEach(b=>b.setAttribute("aria-pressed", b.dataset.species===s));
+  renderCatalog();
+}
+
+// species cards
+const allBtn = document.createElement("button");
+allBtn.textContent = "All species"; allBtn.dataset.species="all"; allBtn.setAttribute("aria-pressed","true");
+allBtn.onclick = ()=>setSpecies("all");
+filters.appendChild(allBtn);
+
+Object.entries(SPECIES).forEach(([key,sp])=>{
+  const count = TOOLS.filter(t=>t.sp.includes(key)).length;
+  const card = document.createElement("button");
+  card.className = "species glass";
+  card.dataset.species = key;
+  card.setAttribute("aria-pressed","false");
+  card.innerHTML = `<h3>${sp.label}</h3><p>${sp.note}</p><span class="count">${count} tools</span>`;
+  card.onclick = ()=>setSpecies(key);
+  grid.appendChild(card);
+});
+
+document.getElementById("stat-tools").textContent = TOOLS.length;
+renderCatalog();
+
+// palette switch
+document.querySelectorAll("[data-palette]").forEach(b=>{
+  b.addEventListener("click",()=>{
+    const p = b.dataset.palette;
+    if(p==="mocha") document.documentElement.removeAttribute("data-palette");
+    else document.documentElement.setAttribute("data-palette", p);
+    document.querySelectorAll("[data-palette]").forEach(x=>x.setAttribute("aria-pressed", x===b));
+  });
+});
+
+// ---------- Moving DNA background ----------
+const canvas = document.getElementById("dna");
+const ctx = canvas.getContext("2d");
+const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let W,H,helices=[],hoppers=[];
+
+function resize(){
+  const dpr = Math.min(window.devicePixelRatio||1, 2);
+  W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const n = Math.max(4, Math.round(W/260));
+  helices = Array.from({length:n},(_,i)=>({
+    x: (i+.5)*(W/n) + (Math.random()-.5)*60,
+    y: Math.random()*H,
+    amp: 16+Math.random()*12,
+    len: 220+Math.random()*180,
+    speed: .0004+Math.random()*.0006,
+    phase: Math.random()*Math.PI*2,
+    drift: (Math.random()*.25+.1)*(Math.random()<.5?-1:1),
+    alpha: .18+Math.random()*.16
+  }));
+  hoppers = Array.from({length:Math.round(n*1.5)},()=>newHopper());
+}
+function newHopper(){
+  return {
+    x: Math.random()*W, y: Math.random()*H,
+    tx: 0, ty: 0, size: 10+Math.random()*12, rot: Math.random()*Math.PI,
+    alpha: .12+Math.random()*.14, timer: 120+Math.random()*240
+  };
+}
+function drawHelix(h,t){
+  const steps = 26, step = h.len/steps;
+  const dy = Math.sin(t*h.speed*1000+h.phase)*0; // placeholder for clarity
+  const y0 = (h.y + t*h.drift*0.02) % (H+h.len) - h.len*0.5;
+  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = `rgba(243,229,200,${h.alpha})`;
+  ctx.beginPath();
+  for(let i=0;i<=steps;i++){
+    const y = y0 + i*step;
+    const a = Math.sin(i*0.6 + t*h.speed*1000 + h.phase)*h.amp;
+    const x1 = h.x + a, x2 = h.x - a;
+    if(i===0){ctx.moveTo(x1,y);} else ctx.lineTo(x1,y);
+  }
+  ctx.stroke();
+  ctx.beginPath();
+  for(let i=0;i<=steps;i++){
+    const y = y0 + i*step;
+    const a = Math.sin(i*0.6 + t*h.speed*1000 + h.phase)*h.amp;
+    if(i===0){ctx.moveTo(h.x-a,y);} else ctx.lineTo(h.x-a,y);
+  }
+  ctx.stroke();
+  ctx.strokeStyle = `rgba(216,168,107,${h.alpha*0.9})`;
+  for(let i=0;i<=steps;i+=2){
+    const y = y0 + i*step;
+    const a = Math.sin(i*0.6 + t*h.speed*1000 + h.phase)*h.amp;
+    ctx.beginPath();
+    ctx.moveTo(h.x+a,y); ctx.lineTo(h.x-a,y);
+    ctx.stroke();
+  }
+}
+function drawHopper(p){
+  // a rounded "transposon" block that hops to a new spot now and then
+  p.timer--;
+  if(p.timer<=0){
+    p.tx = Math.random()*W; p.ty = Math.random()*H;
+    p.timer = 180 + Math.random()*300;
+    p.alpha = .06;
+  }
+  p.x += (p.tx - p.x)*0.012;
+  p.y += (p.ty - p.y)*0.012;
+  p.alpha = Math.min(p.alpha + 0.0015, 0.26);
+  p.rot += 0.002;
+  ctx.save();
+  ctx.translate(p.x,p.y); ctx.rotate(p.rot);
+  ctx.strokeStyle = `rgba(216,168,107,${p.alpha})`;
+  ctx.fillStyle = `rgba(243,229,200,${p.alpha*0.35})`;
+  ctx.lineWidth = 1;
+  const s = p.size;
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(-s,-s*0.5,s*2,s,4) : ctx.rect(-s,-s*0.5,s*2,s);
+  ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+let frame = 0;
+function loop(){
+  frame++;
+  ctx.clearRect(0,0,W,H);
+  helices.forEach(h=>drawHelix(h, frame));
+  hoppers.forEach(drawHopper);
+  if(!reduce) requestAnimationFrame(loop);
+}
+window.addEventListener("resize", resize);
+resize();
+if(reduce){ loop(); } else { requestAnimationFrame(loop); }
+</script>
+</body>
+</html>
