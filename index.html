@@ -82,7 +82,10 @@
   .gap li{margin:6px 0}
 
   footer{margin-top:72px;color:var(--muted);font-size:14px}
-
+  .palettes.corner{position:fixed;top:18px;right:18px;z-index:10;display:flex;gap:6px;flex-wrap:wrap;
+  max-width:calc(100vw - 36px);padding:6px;border-radius:999px;background:var(--glass);
+  border:1px solid var(--glass-edge);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+  .palettes.corner button{padding:6px 12px;font-size:13px}
   @media (max-width:640px){
     header{padding:28px 22px}
     h1{font-size:44px}
@@ -93,7 +96,11 @@
 </head>
 <body>
 <canvas id="dna" aria-hidden="true"></canvas>
-
+<div class="palettes corner" role="group" aria-label="Colour palette">
+  <button data-palette="mocha" aria-pressed="true">Mocha</button>
+  <button data-palette="espresso" aria-pressed="false">Espresso</button>
+  <button data-palette="cocoa" aria-pressed="false">Cocoa</button>
+</div>
 <div class="wrap">
 
 <header class="glass">
@@ -268,100 +275,158 @@ document.querySelectorAll("[data-palette]").forEach(b=>{
 });
 
 // ---------- Moving DNA background ----------
+// ---------- Glass DNA and floating cells ----------
 const canvas = document.getElementById("dna");
 const ctx = canvas.getContext("2d");
 const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-let W,H,helices=[],hoppers=[];
+const CREAM = [243,229,200], CARAMEL = [216,168,107], MOSS = [155,196,154];
+let W = 0, H = 0, helices = [], cells = [], ripples = [], frame = 0;
+
+const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+
+function newCell(startAtBottom){
+  const r = 8 + Math.random()*22;
+  return {
+    x: Math.random()*W,
+    y: startAtBottom ? H + r*2 : Math.random()*H,
+    r, alpha: .10 + Math.random()*.16,
+    vy: -(.05 + Math.random()*.12),
+    vx: (Math.random()-.5)*.1,
+    wob: Math.random()*Math.PI*2,
+    px: 0, py: 0
+  };
+}
 
 function resize(){
-  const dpr = Math.min(window.devicePixelRatio||1, 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   W = canvas.clientWidth; H = canvas.clientHeight;
   canvas.width = W*dpr; canvas.height = H*dpr;
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  const n = Math.max(4, Math.round(W/260));
-  helices = Array.from({length:n},(_,i)=>({
-    x: (i+.5)*(W/n) + (Math.random()-.5)*60,
+  const n = Math.max(3, Math.round(W/380));
+  helices = Array.from({length:n}, (_, i) => ({
+    x: (i+.5)*W/n + (Math.random()-.5)*80,
     y: Math.random()*H,
-    amp: 16+Math.random()*12,
-    len: 220+Math.random()*180,
-    speed: .0004+Math.random()*.0006,
-    phase: Math.random()*Math.PI*2,
-    drift: (Math.random()*.25+.1)*(Math.random()<.5?-1:1),
-    alpha: .18+Math.random()*.16
+    len: 260 + Math.random()*200,
+    r: 30 + Math.random()*14,
+    pitch: 44 + Math.random()*14,
+    spin: (.25 + Math.random()*.35) * (Math.random()<.5 ? -1 : 1),
+    rise: (4 + Math.random()*6) * (Math.random()<.5 ? -1 : 1),
+    alpha: .45 + Math.random()*.3,
+    phase: Math.random()*Math.PI*2
   }));
-  hoppers = Array.from({length:Math.round(n*1.5)},()=>newHopper());
+  const m = Math.max(12, Math.round(W*H/36000));
+  cells = Array.from({length:m}, () => newCell(false));
 }
-function newHopper(){
-  return {
-    x: Math.random()*W, y: Math.random()*H,
-    tx: 0, ty: 0, size: 10+Math.random()*12, rot: Math.random()*Math.PI,
-    alpha: .12+Math.random()*.14, timer: 120+Math.random()*240
-  };
+
+function drawHelix(h, time){
+  const span = h.len, steps = Math.ceil(span/3);
+  const travel = H + span + 80;
+  const yBase = (((h.y + time*h.rise) % travel) + travel) % travel - span/2 - 40;
+  const spinAng = h.phase + time*h.spin;
+  const pts = [];
+  for(let i = 0; i <= steps; i++){
+    const s = i*span/steps;
+    const a = s/h.pitch*Math.PI*2 + spinAng;
+    pts.push({
+      y: yBase + s,
+      x1: h.x + Math.sin(a)*h.r, z1: Math.cos(a),
+      x2: h.x + Math.sin(a+Math.PI)*h.r, z2: -Math.cos(a)
+    });
+  }
+  // base-pair rungs with alternating colours (A-T and G-C)
+  for(let i = 0; i <= steps; i += 4){
+    const p = pts[i];
+    const depth = (p.z1+1)/2;
+    const col = (i/4) % 2 ? MOSS : CARAMEL;
+    ctx.strokeStyle = rgba(col, h.alpha*(.2 + .5*depth));
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(p.x1, p.y); ctx.lineTo(p.x2, p.y); ctx.stroke();
+    ctx.fillStyle = rgba(col, h.alpha*(.4 + .4*depth));
+    ctx.beginPath(); ctx.arc(p.x1, p.y, 2.4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x2, p.y, 2.4, 0, Math.PI*2); ctx.fill();
+  }
+  // glass backbone: thicker and brighter where the strand is in front
+  for(const key of ["1","2"]){
+    for(let i = 0; i < steps; i++){
+      const a = pts[i], b = pts[i+1];
+      const front = ((key==="1" ? a.z1 : a.z2) + 1)/2;
+      const x1 = a["x"+key], x2 = b["x"+key];
+      ctx.beginPath(); ctx.moveTo(x1, a.y); ctx.lineTo(x2, b.y);
+      ctx.lineWidth = 2 + front*4;
+      ctx.strokeStyle = rgba(CREAM, h.alpha*(.08 + .12*front));
+      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x1-1, a.y); ctx.lineTo(x2-1, b.y);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = rgba([255,252,245], h.alpha*(.1 + .45*front));
+      ctx.stroke();
+    }
+  }
 }
-function drawHelix(h,t){
-  const steps = 26, step = h.len/steps;
-  const dy = Math.sin(t*h.speed*1000+h.phase)*0; // placeholder for clarity
-  const y0 = (h.y + t*h.drift*0.02) % (H+h.len) - h.len*0.5;
-  ctx.lineWidth = 1.2;
-  ctx.strokeStyle = `rgba(243,229,200,${h.alpha})`;
-  ctx.beginPath();
-  for(let i=0;i<=steps;i++){
-    const y = y0 + i*step;
-    const a = Math.sin(i*0.6 + t*h.speed*1000 + h.phase)*h.amp;
-    const x1 = h.x + a, x2 = h.x - a;
-    if(i===0){ctx.moveTo(x1,y);} else ctx.lineTo(x1,y);
-  }
-  ctx.stroke();
-  ctx.beginPath();
-  for(let i=0;i<=steps;i++){
-    const y = y0 + i*step;
-    const a = Math.sin(i*0.6 + t*h.speed*1000 + h.phase)*h.amp;
-    if(i===0){ctx.moveTo(h.x-a,y);} else ctx.lineTo(h.x-a,y);
-  }
-  ctx.stroke();
-  ctx.strokeStyle = `rgba(216,168,107,${h.alpha*0.9})`;
-  for(let i=0;i<=steps;i+=2){
-    const y = y0 + i*step;
-    const a = Math.sin(i*0.6 + t*h.speed*1000 + h.phase)*h.amp;
-    ctx.beginPath();
-    ctx.moveTo(h.x+a,y); ctx.lineTo(h.x-a,y);
+
+function updateCell(c){
+  c.y += c.vy; c.x += c.vx; c.wob += .01;
+  c.px *= .965; c.py *= .965;
+  if(c.y < -c.r*2) Object.assign(c, newCell(true));
+}
+
+function drawCell(c){
+  const x = c.x + Math.sin(c.wob)*10 + c.px;
+  const y = c.y + c.py;
+  const g = ctx.createRadialGradient(x - c.r*.35, y - c.r*.35, c.r*.1, x, y, c.r);
+  g.addColorStop(0, rgba(CREAM, c.alpha*1.8));
+  g.addColorStop(.7, rgba(CREAM, c.alpha*.5));
+  g.addColorStop(1, rgba(CARAMEL, c.alpha*1.1));
+  ctx.beginPath(); ctx.arc(x, y, c.r, 0, Math.PI*2);
+  ctx.fillStyle = g; ctx.fill();
+  ctx.lineWidth = 1; ctx.strokeStyle = rgba(CREAM, c.alpha*2.2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(x + c.r*.22, y - c.r*.15, c.r*.28, 0, Math.PI*2);
+  ctx.fillStyle = rgba(CARAMEL, c.alpha*2.4); ctx.fill();
+}
+
+// Click or tap: cells near the point are pushed away and drift back slowly
+window.addEventListener("pointerdown", e => {
+  if(reduce || e.target.closest("button, a")) return;
+  ripples.push({x: e.clientX, y: e.clientY, t: 0});
+  const R = 260;
+  cells.forEach(c => {
+    const dx = (c.x + c.px) - e.clientX, dy = (c.y + c.py) - e.clientY;
+    const d = Math.hypot(dx, dy) || 1;
+    if(d < R){
+      const f = (1 - d/R) * 9;
+      c.px += dx/d * f; c.py += dy/d * f;
+    }
+  });
+});
+
+function drawRipples(){
+  ripples = ripples.filter(r => r.t < 90);
+  ripples.forEach(r => {
+    r.t++;
+    const k = r.t/90;
+    ctx.beginPath(); ctx.arc(r.x, r.y, k*260, 0, Math.PI*2);
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = rgba(CARAMEL, (1-k)*.5);
     ctx.stroke();
-  }
+  });
 }
-function drawHopper(p){
-  // a rounded "transposon" block that hops to a new spot now and then
-  p.timer--;
-  if(p.timer<=0){
-    p.tx = Math.random()*W; p.ty = Math.random()*H;
-    p.timer = 180 + Math.random()*300;
-    p.alpha = .06;
-  }
-  p.x += (p.tx - p.x)*0.012;
-  p.y += (p.ty - p.y)*0.012;
-  p.alpha = Math.min(p.alpha + 0.0015, 0.26);
-  p.rot += 0.002;
-  ctx.save();
-  ctx.translate(p.x,p.y); ctx.rotate(p.rot);
-  ctx.strokeStyle = `rgba(216,168,107,${p.alpha})`;
-  ctx.fillStyle = `rgba(243,229,200,${p.alpha*0.35})`;
-  ctx.lineWidth = 1;
-  const s = p.size;
-  ctx.beginPath();
-  ctx.roundRect ? ctx.roundRect(-s,-s*0.5,s*2,s,4) : ctx.rect(-s,-s*0.5,s*2,s);
-  ctx.fill(); ctx.stroke();
-  ctx.restore();
+
+function render(){
+  ctx.clearRect(0, 0, W, H);
+  const time = reduce ? 0 : frame/60;
+  helices.forEach(h => drawHelix(h, time));
+  cells.forEach(c => { if(!reduce) updateCell(c); drawCell(c); });
+  drawRipples();
 }
-let frame = 0;
+
 function loop(){
   frame++;
-  ctx.clearRect(0,0,W,H);
-  helices.forEach(h=>drawHelix(h, frame));
-  hoppers.forEach(drawHopper);
+  render();
   if(!reduce) requestAnimationFrame(loop);
 }
+
 window.addEventListener("resize", resize);
 resize();
-if(reduce){ loop(); } else { requestAnimationFrame(loop); }
+loop();
 </script>
 </body>
 </html>
